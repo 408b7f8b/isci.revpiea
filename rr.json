@@ -1,0 +1,10 @@
+{
+  "Identifikation": "rr",
+  "Datafields": [
+    {
+      "value": 0,
+      "Identifikation": "int1",
+      "type": "Int32"
+    }
+  ]
+}

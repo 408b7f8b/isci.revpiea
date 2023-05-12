@@ -1,0 +1,10 @@
+{
+  "Identifikation": "example",
+  "Datafields": [
+    {
+      "value": 123,
+      "Identifikation": "test_int",
+      "type": "Int32"
+    }
+  ]
+}
