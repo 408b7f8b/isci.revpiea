@@ -13,9 +13,11 @@ namespace revpiea
     {
         static void Main(string[] args)
         {
-            var konfiguration = new Parameter("konfiguration.json");
-            
-            var structure = new Datenstruktur(konfiguration.OrdnerDatenstruktur);
+            var konfiguration = new Parameter(args);
+
+            var structure = new Datenstruktur(konfiguration);
+
+            var ausfuehrungsmodell = new Ausführungsmodell(konfiguration, structure.Zustand);
 
             RevPiZugriff.SystemkonfigurationLesen();
             RevPiZugriff.EinUndAusgängeAufstellen();
@@ -50,16 +52,15 @@ namespace revpiea
             beschreibung.Beschreibung = "Modul zur EA-Integration von RevPi";
             beschreibung.Speichern(konfiguration.OrdnerBeschreibungen + "/" + konfiguration.Identifikation + ".json");
 
-            var Zustand = new dtZustand(konfiguration.OrdnerDatenstruktur);
-            Zustand.Start();
-
             while(true)
             {
-                Zustand.Lesen();
-                var erfüllteTransitionen = konfiguration.Ausführungstransitionen.Where(a => a.Eingangszustand == (System.Int32)Zustand.value);
-                if (erfüllteTransitionen.Count<Ausführungstransition>() > 0)
+                structure.Zustand.WertAusSpeicherLesen();
+                
+                if (ausfuehrungsmodell.AktuellerZustandModulAktivieren())
                 {
-                    if (erfüllteTransitionen.ElementAt(0).Eingangszustand == (System.Int32)Zustand.value)
+                    var ausfuehrung_parameter = ausfuehrungsmodell.ParameterAktuellerZustand();
+
+                    if ((string)ausfuehrung_parameter == "E")
                     {
                         foreach (var Eingang in Eingaenge)
                         {
@@ -68,42 +69,39 @@ namespace revpiea
                             {
                                 switch (Eingang.Key.typ)
                                 {
-                                    case ioObjekt.Typ.BOOL: Eingang.Value.value = ((bool)o ? 1 : 0); break;
-                                    case ioObjekt.Typ.BYTE: Eingang.Value.value = (int)((byte)o); break;
-                                    case ioObjekt.Typ.WORD: Eingang.Value.value = o; break;
-                                    case ioObjekt.Typ.INT: Eingang.Value.value = o; break;
+                                    case ioObjekt.Typ.BOOL: Eingang.Value.Wert = ((bool)o ? 1 : 0); break;
+                                    case ioObjekt.Typ.BYTE: Eingang.Value.Wert = (int)((byte)o); break;
+                                    case ioObjekt.Typ.WORD: Eingang.Value.Wert = (int)o; break;
+                                    case ioObjekt.Typ.INT: Eingang.Value.Wert = (int)o; break;
                                     default: continue;
                                 }
-                            
-                                Eingang.Value.Schreiben();
                             }
                         }
-                        structure.Schreiben();
-                        Zustand.value = erfüllteTransitionen.ElementAt(0).Ausgangszustand;
-                    } else if (erfüllteTransitionen.ElementAt(1).Eingangszustand == (System.Int32)Zustand.value)
+                        structure.Schreiben();                        
+                    } else if ((string)ausfuehrung_parameter == "A")
                     {
                         foreach (var Ausgang in Ausgaenge)
                         {
-                            Ausgang.Key.Lesen();
-                            if (Ausgang.Key.aenderung)
+                            Ausgang.Key.WertAusSpeicherLesen();
+                            if (Ausgang.Key.aenderungExtern)
                             {
                                 Console.WriteLine("Aenderung " + Ausgang.Key.Identifikation);
                                 switch (Ausgang.Value.typ)
                                 {
-                                    case ioObjekt.Typ.BOOL: Ausgang.Value.Zustandschreiben((System.Int32)Ausgang.Key.value == 1 ? true : false); break;
-                                    case ioObjekt.Typ.BYTE: Ausgang.Value.Zustandschreiben((byte)Ausgang.Key.value); break;
-                                    case ioObjekt.Typ.WORD: Ausgang.Value.Zustandschreiben((short)Ausgang.Key.value); break;
-                                    case ioObjekt.Typ.INT: Ausgang.Value.Zustandschreiben((System.Int32)Ausgang.Key.value); break;
+                                    case ioObjekt.Typ.BOOL: Ausgang.Value.Zustandschreiben((System.Int32)Ausgang.Key.Wert == 1 ? true : false); break;
+                                    case ioObjekt.Typ.BYTE: Ausgang.Value.Zustandschreiben((byte)Ausgang.Key.Wert); break;
+                                    case ioObjekt.Typ.WORD: Ausgang.Value.Zustandschreiben((short)Ausgang.Key.Wert); break;
+                                    case ioObjekt.Typ.INT: Ausgang.Value.Zustandschreiben((System.Int32)Ausgang.Key.Wert); break;
                                     default: continue;
                                 }
 
-                                Ausgang.Key.aenderung = false;
+                                Ausgang.Key.aenderungExtern = false;
                             }
                         }
-                        Zustand.value = erfüllteTransitionen.ElementAt(1).Ausgangszustand;
                     }
-                    
-                    Zustand.Schreiben();
+
+                    ausfuehrungsmodell.Folgezustand();
+                    structure.Zustand.WertInSpeicherSchreiben();
                 }
             }
         }
