@@ -5,21 +5,29 @@ using IctBaden.RevolutionPi;
 using IctBaden.RevolutionPi.Configuration;
 using IctBaden.RevolutionPi.Model;
 using isci.Daten;
+using System.Runtime.InteropServices;
 
-namespace revpiea
+namespace isci.revpiea
 {
     public static class RevPiZugriff
     {
         public static PiControl control = new PiControl();
-        static PiConfiguration config = new PiConfiguration();
+        //static PiConfiguration config = new PiConfiguration();
 
         static Systemkonfiguration Konfiguration;
 
         public static void SystemkonfigurationLesen(string pfad = "/etc/revpi/config.rsc")
         {
-            var inh = System.IO.File.ReadAllText(pfad).Replace("\"out\":", "\"Out\":");
-            var r = Newtonsoft.Json.JsonConvert.DeserializeObject<Systemkonfiguration>(inh);
-            Konfiguration = r;
+            try {
+                Logger.Information("Lese RevPi-Systemkonfiguration: " + pfad);
+                var inh = System.IO.File.ReadAllText(pfad).Replace("\"out\":", "\"Out\":");
+                var r = Newtonsoft.Json.JsonConvert.DeserializeObject<Systemkonfiguration>(inh);
+                Konfiguration = r;
+            } catch (System.Exception e)
+            {
+                Logger.Fatal("Ausnahme beim Lesen der Systemkonfiguration: " + e.Message);
+                System.Environment.Exit(-1);
+            }            
         }
 
         public static Dictionary<string, ioObjekt> Eingänge;
@@ -28,6 +36,8 @@ namespace revpiea
 
         public static void EinUndAusgängeAufstellen()
         {
+            Logger.Information("Interne Erstellung des Zugriffs auf RevPi-Ein- und Ausgänge.");
+
             Eingänge = new Dictionary<string, ioObjekt>();
             Ausgänge = new Dictionary<string, ioObjekt>();
 
@@ -39,6 +49,7 @@ namespace revpiea
                     if (!o.sichtbar) continue;
                     //Eingänge.Add(_inp.Key, o);
                     Eingänge.Add(o.Name, o);
+                    Logger.Information(o.Name + " als Eingang hinzugefügt. Adressoffset: " + o.AdresseByte + "." + o.AdresseBit);
                 }
                 foreach (var _out in device.Out)
                 {
@@ -46,6 +57,7 @@ namespace revpiea
                     if (!o.sichtbar) continue;
                     //Ausgänge.Add(_out.Key, o);
                     Ausgänge.Add(o.Name, o);
+                    Logger.Information(o.Name + " als Ausgang hinzugefügt. Adressoffset: " + o.AdresseByte + "." + o.AdresseBit);
                 }                
             }
         }
@@ -94,20 +106,16 @@ namespace revpiea
             wert_ = new byte[l];
         }
 
-        public dtInt32 EintragErstellen(string praefix)
+        public Dateneintrag EintragErstellen()
         {
-            dtInt32 dateneintrag;
-
             switch(typ)
             {
-                case Typ.BOOL: dateneintrag = new dtInt32(wert_[0] != 0 ? 1 : 0, Name); break;
-                case Typ.BYTE: dateneintrag = new dtInt32(wert_[0], Name); break;
-                case Typ.INT: dateneintrag = new dtInt32((wert_[3] << 24) + (wert_[2] << 16) + (wert_[1] << 8) + wert_[0], Name); break;
-                case Typ.WORD: dateneintrag = new dtInt32((short)((wert_[1] << 8) + wert_[0]), Name); break;
+                case Typ.BOOL: return new dtBool(wert_[0] != 0 ? true : false, Name);
+                case Typ.BYTE: return new dtUInt8(wert_[0], Name);
+                case Typ.INT: return new dtInt32((wert_[3] << 24) + (wert_[2] << 16) + (wert_[1] << 8) + wert_[0], Name);
+                case Typ.WORD: return new dtInt16((short)((wert_[1] << 8) + wert_[0]), Name);
                 default: return null;
             }
-
-            return dateneintrag;
         }
 
         public bool Zustandlesen()
@@ -143,10 +151,10 @@ namespace revpiea
 
             switch(typ)
             {
-                case Typ.BOOL: bool b = ((int)wert_[0] & (1 << AdresseBit)) != 0; o = b; break;
+                case Typ.BOOL: var b = ((int)wert_[0] & (1 << AdresseBit)) != 0; o = b; break;
                 case Typ.BYTE: o = wert_[0]; break;
-                case Typ.INT: int i = (wert_[3] << 24) + (wert_[2] << 16) + (wert_[1] << 8) + wert_[0]; o = i; break;
-                case Typ.WORD: int j = (wert_[1] << 8) + wert_[0]; o = j; break;
+                case Typ.INT: var i = (wert_[3] << 24) + (wert_[2] << 16) + (wert_[1] << 8) + wert_[0]; o = i; break;
+                case Typ.WORD: var j = (short)(wert_[1] << 8) + wert_[0]; o = j; break;
                 default: o = null; break;
             }
 
@@ -163,7 +171,7 @@ namespace revpiea
                 case Typ.BYTE: wert_[0] = (byte)o; break;
                 case Typ.INT: wert_ = BitConverter.GetBytes((int)o); break;
                 case Typ.WORD: wert_ = BitConverter.GetBytes((short)o); break;
-                default: o = null; break;
+                default: break;
             }
 
             RevPiZugriff.control.Write(AdresseByte, wert_);

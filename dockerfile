@@ -1,13 +1,20 @@
-FROM debian:latest
+FROM mcr.microsoft.com/dotnet/runtime:8.0
 
-RUN apt-get update
-RUN apt-get upgrade -y
+# Working directory anlegen, Dateien kopieren und Berechtigungen setzen
+WORKDIR /app
+COPY ./publish ./
+RUN chmod +x "./isci.revpiea"
 
-RUN mkdir -p /mnt/datenstruktur
-RUN mkdir -p /mnt/anwendungen
+# Umgebungsvariablen setzen
+ENV "ISCI_OrdnerAnwendungen"="/Anwendungen"
+ENV "ISCI_OrdnerDatenstrukturen"="/Datenstrukturen"
 
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+# Umgebungsvariablen, die auf dem System angelegt werden müssen:
+# ISCI_Identifikation=XXX
+# ISCI_Ressource=XXX
+# ISCI_Anwendung=XXX
+#
+# Die beiden Ordner in den Umgebungsvariablen vom Host-System müssen eingebunden werden
+# Es muss außerdem eine Konfiguration ${ISCI_Identifikation}.json im Ordner "${ISCI_OrdnerAnwendungen}/${ISCI_Anwendung}/Konfigurationen" vorhanden sein
 
-COPY bin/Debug/netcoreapp3.1/linux-x64/publish/isci.zykluszeit /usr/local/bin
-
-ENTRYPOINT ["/usr/local/bin/isci.zykluszeit"]
+ENTRYPOINT ["./isci.revpiea"]
