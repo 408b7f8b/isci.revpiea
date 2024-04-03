@@ -31,7 +31,7 @@ namespace isci.revpiea
 
             var dm = new Datenmodell(konfiguration.Identifikation);
 
-            var Ausgaenge = new Dictionary<Dateneintrag, ioObjekt>();
+            var Ausgaenge = new Dictionary<ioObjekt, Dateneintrag>();
             var Eingaenge = new Dictionary<ioObjekt, Dateneintrag>();
 
             foreach (var eintrag_ in RevPiZugriff.Eingänge)
@@ -47,7 +47,7 @@ namespace isci.revpiea
                 Logger.Information("Erstelle Dateneintrag für Ausgang " + eintrag_.Key);
                 var eintrag = eintrag_.Value.EintragErstellen();
                 dm.Dateneinträge.Add(eintrag);
-                Ausgaenge.Add(eintrag, eintrag_.Value);
+                Ausgaenge.Add(eintrag_.Value, eintrag);
             }
 
             dm.Speichern(konfiguration);
@@ -91,17 +91,17 @@ namespace isci.revpiea
                     {
                         foreach (var Ausgang in Ausgaenge)
                         {
-                            Ausgang.Key.WertAusSpeicherLesen();
-                            if (Ausgang.Key.aenderungExtern)
+                            Ausgang.Value.WertAusSpeicherLesen();
+                            if (Ausgang.Value.aenderungExtern)
                             {
-                                Ausgang.Key.aenderungExtern = false;
-                                Logger.Alles("Aenderung Ausgang: " + Ausgang.Key.Identifikation);
-                                switch (Ausgang.Value.typ)
+                                Ausgang.Value.aenderungExtern = false;
+                                Logger.Alles("Aenderung Ausgang: " + Ausgang.Value.Identifikation);
+                                switch (Ausgang.Key.typ)
                                 {
                                     case ioObjekt.Typ.BOOL:
                                     case ioObjekt.Typ.BYTE:
                                     case ioObjekt.Typ.WORD:
-                                    case ioObjekt.Typ.INT: Ausgang.Value.Zustandschreiben(Ausgang.Key.Wert); break;
+                                    case ioObjekt.Typ.INT: Ausgang.Key.Zustandschreiben(Ausgang.Value.Wert); break;
                                     default: continue;
                                 }
                             }
